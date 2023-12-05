@@ -1,1 +1,1 @@
-# TODO: Managing the registration and deregistration of servers.
+# TODO: Managing the registration and de-registration of servers.

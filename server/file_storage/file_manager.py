@@ -1,1 +1,1 @@
-# TODO: Handling faults and server crashes.
+# TODO: Handling storage, retrieval, and management of files.
