@@ -1,82 +1,38 @@
-# TODO: Main server application interface.
+# server/server.py
 import socket
 import threading
-import os
+from server.config import SERVER_HOST, SERVER_PORT
+from server.file_storage.file_manager import FileManager
+from server.server_operations.server_utilities import handle_request
 
 class FileServer:
-    def __init__(self, host='localhost', port=8080):
-        self.host = host
-        self.port = port
+    def __init__(self):
+        self.host = SERVER_HOST
+        self.port = SERVER_PORT
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.bind((self.host, self.port))
+        self.file_manager = FileManager()
 
     def start(self):
-        print(f"Starting server on {self.host}:{self.port}")
-        self.sock.listen(5)
+        self.sock.listen()
+        print(f"Server listening on {self.host}:{self.port}")
         while True:
-            client, address = self.sock.accept()
-            threading.Thread(target=self.handle_client, args=(client,)).start()
+            client, _ = self.sock.accept()
+            threading.Thread(target=self.client_handler, args=(client,)).start()
 
-    def handle_client(self, client):
-        while True:
-            try:
-                data = client.recv(1024)
-                if not data:
+    def client_handler(self, client_socket):
+        with client_socket:
+            while True:
+                try:
+                    data = client_socket.recv(1024).decode()
+                    if not data:
+                        break
+                    response = handle_request(data, self.file_manager)
+                    client_socket.sendall(response.encode())
+                except Exception as e:
+                    print(f"Error: {e}")
                     break
-                command, *args = data.decode().split()
-                response = self.execute_command(command, args)
-                client.sendall(response.encode())
-            except Exception as e:
-                print(f"Error: {e}")
-                break
-        client.close()
 
-    def execute_command(self, command, args):
-        if command == 'CREATE':
-            return self.create_file(*args)
-        elif command == 'EDIT':
-            return self.edit_file(*args)
-        elif command == 'DELETE':
-            return self.delete_file(*args)
-        elif command == 'UPLOAD':
-            return self.upload_file(*args)
-        elif command == 'DOWNLOAD':
-            return self.download_file(*args)
-        else:
-            return "Invalid command"
-
-    def create_file(self, file_name):
-        if os.path.exists(file_name):
-            return f"File {file_name} already exists."
-        with open(file_name, 'w') as file:
-            file.write('')
-        return f"File {file_name} created successfully."
-
-    def edit_file(self, file_name, new_content):
-        if not os.path.exists(file_name):
-            return f"File {file_name} does not exist."
-        with open(file_name, 'w') as file:
-            file.write(new_content)
-        return f"File {file_name} edited successfully."
-
-    def delete_file(self, file_name):
-        if not os.path.exists(file_name):
-            return f"File {file_name} does not exist."
-        os.remove(file_name)
-        return f"File {file_name} deleted successfully."
-
-    def upload_file(self, file_name, file_contents):
-        with open(file_name, 'w') as file:
-            file.write(file_contents)
-        return f"File {file_name} uploaded successfully."
-
-    def download_file(self, file_name):
-        if not os.path.exists(file_name):
-            return "File not found"
-        with open(file_name, 'r') as file:
-            return file.read()
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     server = FileServer()
     server.start()
-
