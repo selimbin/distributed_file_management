@@ -10,6 +10,7 @@ server_port = 10001
 # Buffer size
 buffer_size = 1024
 
+
 message = 'Hi server!'
 
 try:
