@@ -1,4 +1,4 @@
-# TODO: Main client application interface.
+# TODO: Main client application interface. write, read, create, edit, delete, view
 
 #from discovery_client import DiscoveryClient
 #from file_operations import FileOperations
@@ -95,7 +95,99 @@
 #     file_operations = FileOperations(None, None)  # No need for server IP and port for local operations
 #     file_operations.delete_file(file_name)
 
-#######################################################
+#########################This code has Upload & Download #############################
+
+# import socket
+
+# class FileClient:
+#     def __init__(self, host, port):
+#         self.host = host
+#         self.port = port
+#         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+#         self.client_socket.connect((self.host, self.port))
+
+#     def send_request(self, request):
+#         self.client_socket.send(request.encode())
+#         response = self.client_socket.recv(1024).decode()
+#         print(response)
+
+#     def upload(self, filename):
+#         with open(filename, 'rb') as file:
+#             self.send_request(f'UPLOAD {filename}')
+#             data = file.read(1024)
+#             while data:
+#                 self.send_request(data.decode())
+#                 data = file.read(1024)
+
+#     def download(self, filename):
+#         self.send_request(f'DOWNLOAD {filename}')
+#         response = self.client_socket.recv(1024).decode()
+#         if response != 'File not found':
+#             with open(filename, 'wb') as file:
+#                 file.write(response.encode())
+
+#     def create(self, filename):
+#         self.send_request(f'CREATE {filename}')
+    
+
+#     def edit(self, filename, new_content):
+#         self.send_request(f'EDIT {filename} {new_content}')
+
+#     def delete(self, filename):
+#         self.send_request(f'DELETE {filename}')
+
+#     def close_connection(self):
+#         self.send_request('EXIT')
+#         self.client_socket.close()
+
+#     def view(self, filename):
+#         self.send_request(f'VIEW {filename}')
+#         response = self.client_socket.recv(1024).decode()
+#         if response != 'File not found':
+#             print(f'File content:\n{response}')
+#         else:
+#             print('File not found')
+
+
+# if __name__ == "__main__":
+#     client = FileClient('127.0.0.1', 12345)
+#     while True:
+#         command = input('Enter command: ')
+#         if command == 'EXIT':
+#             client.close_connection()
+#             break
+#         elif command == 'UPLOAD':
+#             filename = input('Enter filename: ')
+#             client.upload(filename)
+#         elif command == 'DOWNLOAD':
+#             filename = input('Enter filename: ')
+#             client.download(filename)
+#         elif command == 'CREATE':
+#             filename = input('Enter filename: ')
+#             client.create(filename)
+#         elif command == 'EDIT':
+#             filename = input('Enter filename: ')
+#             new_content = input('Enter new content: ')
+#             client.edit(filename, new_content)
+#         elif command == 'DELETE':
+#             filename = input('Enter filename: ')
+#             client.delete(filename)
+#         elif command == 'VIEW':
+#             filename = input('Enter filename: ')
+#             client.view(filename)
+#         else:
+#             print('Invalid command')
+
+    # Example usage
+    #client.upload('example.txt')
+    #client.download('example.txt')
+    #client.create('new_file.txt')
+    #client.edit('new_file.txt', 'New content0000')
+    #client.delete('new_file.txt')
+    #client.view('new_file.txt')
+    #client.close_connection()
+            
+####################################################################################################
 
 import socket
 
@@ -111,21 +203,6 @@ class FileClient:
         response = self.client_socket.recv(1024).decode()
         print(response)
 
-    def upload(self, filename):
-        with open(filename, 'rb') as file:
-            self.send_request(f'UPLOAD {filename}')
-            data = file.read(1024)
-            while data:
-                self.send_request(data.decode())
-                data = file.read(1024)
-
-    def download(self, filename):
-        self.send_request(f'DOWNLOAD {filename}')
-        response = self.client_socket.recv(1024).decode()
-        if response != 'File not found':
-            with open(filename, 'wb') as file:
-                file.write(response.encode())
-
     def create(self, filename):
         self.send_request(f'CREATE {filename}')
 
@@ -135,27 +212,47 @@ class FileClient:
     def delete(self, filename):
         self.send_request(f'DELETE {filename}')
 
-    def close_connection(self):
-        self.send_request('EXIT')
-        self.client_socket.close()
-
-    def view(self, filename):
-        self.send_request(f'VIEW {filename}')
+    def read(self, filename):
+        self.send_request(f'READ {filename}')
         response = self.client_socket.recv(1024).decode()
         if response != 'File not found':
             print(f'File content:\n{response}')
         else:
-            print('File not found')
+            print(f'File not found: {filename}')
 
+    def write(self, filename, content):
+        self.send_request(f'WRITE {filename} {content}')
+
+    def close_connection(self):
+        self.send_request('EXIT')
+        self.client_socket.close()
 
 if __name__ == "__main__":
     client = FileClient('127.0.0.1', 12345)
+    
+    while True:
+        command = input('Enter command (CREATE, EDIT, DELETE, READ, WRITE, EXIT): ').upper()
+        
+        if command == 'EXIT':
+            client.close_connection()
+            break
+        elif command == 'CREATE':
+            filename = input('Enter filename: ')
+            client.create(filename)
+        elif command == 'EDIT':
+            filename = input('Enter filename: ')
+            new_content = input('Enter new content: ')
+            client.edit(filename, new_content)
+        elif command == 'DELETE':
+            filename = input('Enter filename: ')
+            client.delete(filename)
+        elif command == 'READ':
+            filename = input('Enter filename: ')
+            client.read(filename)
+        elif command == 'WRITE':
+            filename = input('Enter filename: ')
+            content = input('Enter content: ')
+            client.write(filename, content)
+        else:
+            print('Invalid command')
 
-    # Example usage
-    #client.upload('example.txt')
-    #client.download('example.txt')
-    #client.create('new_file.txt')
-    #client.edit('new_file.txt', 'New content0000')
-    #client.delete('new_file.txt')
-    client.view('new_file.txt')
-    #client.close_connection()
