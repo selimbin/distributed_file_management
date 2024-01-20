@@ -6,7 +6,7 @@ class FileClient:
         self.host = host
         self.port = port
         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.client_socket.connect((self.host, 12346))
+        self.client_socket.connect((self.host, 12345))
         self.queue = []
 
     def test(self):
@@ -24,6 +24,7 @@ class FileClient:
         self.client_socket.send(request.encode())
         response = self.client_socket.recv(1024).decode()
         print(response)
+        return response
 
     async def create(self, filename):
         await self.send_request(f'CREATE {filename}')
@@ -35,8 +36,8 @@ class FileClient:
         await self.send_request(f'DELETE {filename}')
 
     async def read(self, filename):
-        self.send_request(f'READ {filename}')
-        response = self.client_socket.recv(1024).decode()
+        response = await self.send_request(f'READ {filename}')
+        # response = await self.client_socket.recv(1024).decode()
         if response != 'File not found':
             print(f'File content:\n{response}')
         else:
