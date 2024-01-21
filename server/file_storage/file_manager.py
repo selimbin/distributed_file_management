@@ -3,13 +3,15 @@
 import os
 
 class FileManager:
-    def __init__(self, storage_path='file_storage/'):
-        self.storage_path = storage_path
-        if not os.path.exists(storage_path):
-            os.makedirs(storage_path)
+    def __init__(self, server_name, storage_path='file_storage/storage'):
+        self.storage_path = storage_path + '/' + server_name
+        if not os.path.exists(self.storage_path):
+            os.makedirs(self.storage_path)
 
     def save_file(self, file_name, data):
         path = os.path.join(self.storage_path, file_name)
+        if not os.path.exists(path):
+            return "File not found."
         with open(path, 'wb') as file:
             file.write(data)
         return "File saved successfully."
@@ -19,7 +21,7 @@ class FileManager:
         if not os.path.exists(path):
             return "File not found."
         with open(path, 'rb') as file:
-            return file.read()
+            return str(file.read())
 
     def create_file(self, file_name):
         path = os.path.join(self.storage_path, file_name)
