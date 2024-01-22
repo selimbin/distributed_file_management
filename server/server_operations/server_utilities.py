@@ -2,6 +2,9 @@
 
 def handle_request(request, file_manager):
     # Example request: "SAVE somefile.txt This is the content"
+    if request.startswith("REPLICATE"):
+        command, unique_id, file_name, *content = request.split(maxsplit=3)
+        return file_manager.replicate(file_name, content.encode())
     unique_id, command, file_name, *content = request.split(maxsplit=3)
     content = content[0] if content else ""
 

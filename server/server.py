@@ -19,13 +19,13 @@ class FileServer:
     def __init__(self):
         self.server_name = str(uuid.uuid4())
         self.host = SERVER_HOST
-        self.port = SERVER_PORT
+        self.port = 10006
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.bind((self.host, self.port))
         self.file_manager = FileManager(self.server_name)
         self.servers = [('127.0.0.1', 10006)]
-        self.leader = False
-        self.replication_manager = ReplicationManager(self.leader, self.servers, self.file_manager)
+        self.is_leader = False
+        self.replication_manager = ReplicationManager(self.is_leader, self.servers, self.file_manager)
         self.request_history = []
         self.queue = [('127.0.0.1', 10006)]
         self.hold_queue = []
@@ -35,12 +35,12 @@ class FileServer:
         print(f"Server listening on {self.host}:{self.port}")
         while True:
             client, _ = self.sock.accept()
-            if self.leader and len(self.servers) != 0 and len(self.queue) != 0:
+            if self.is_leader and len(self.servers) != 0 and len(self.queue) != 0:
                 server_queue = self.queue.pop(0)
                 threading.Thread(target=self.client_handler, args=(client, server_queue)).start()
                 self.queue.append(server_queue)
             else:
-                if self.leader and len(self.servers) > 1:
+                if self.is_leader and len(self.servers) > 1:
                     print(f"Adding to hold queue")
                     self.hold_queue.append(client)
                 else:
@@ -59,7 +59,7 @@ class FileServer:
                     response = "operation already executed"
                     client_socket.sendall(response.encode())
                     return
-                if self.leader and child_server != 'None':
+                if self.is_leader and child_server != 'None':
                     print(f"Sending request from leader to server: {str(child_server)}")
                     new_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     new_socket.connect(child_server)
@@ -67,21 +67,23 @@ class FileServer:
                     # Expecting an acknowledgment from backup
                     response = new_socket.recv(1024).decode()
                     if operation in ["WRITE", "EDIT", "DELETE", "CREATE"]:
-                        if response.startswith("REPLICATE"):
+                        _, operation, file_name, file_data = parse_request(data)
+                        if operation == "REPLICATE":
+                            response = handle_request(response, self.file_manager)
                             socket_replication = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                             print("Starting replication manager")
                             # command, *content = data.split(maxsplit=3)
                             # TODO: Check if we should replace how we use replication manager to give it response data
-                            self.replication_manager.replicate(unique_id, file_name, file_data, operation, socket_replication)
+                            self.replication_manager.replicate(unique_id, file_name, file_data, socket_replication)
                         else:
                             response = operation + " operation failed"
                 else:
                     response = handle_request(data, self.file_manager)
-                    if not self.leader and operation in ["WRITE", "EDIT", "DELETE", "CREATE"]:
+                    if not self.is_leader and operation in ["WRITE", "EDIT", "DELETE", "CREATE"]:
                         # socket_replication = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                         if "successfully" in response:
                             # print("Will start replication manager")
-                            response = "REPLICATE " + file_data
+                            response = unique_id + " REPLICATE " + file_name + " " + file_data
                             # self.replication_manager.replicate(unique_id, file_name, file_data, operation, socket_replication)
                 self.request_history.append(unique_id)
                 client_socket.sendall(response.encode())

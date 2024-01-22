@@ -46,4 +46,10 @@ class FileManager:
         os.remove(path)
         return "File deleted successfully."
 
+    def replicate(self, file_name, data):
+        path = os.path.join(self.storage_path, file_name)
+        with open(path, 'wb') as file:
+            file.write(data)
+        return "REPLICATION SUCCESSFUL"
+
     # Add more file management methods as needed
