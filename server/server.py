@@ -67,8 +67,8 @@ class FileServer:
                     # Expecting an acknowledgment from backup
                     response = new_socket.recv(1024).decode()
                     if operation in ["WRITE", "EDIT", "DELETE", "CREATE"]:
-                        _, operation, file_name, file_data = parse_request(data)
-                        if operation == "REPLICATE":
+                        _, operation2, file_name, file_data = parse_request(data)
+                        if operation2 == "REPLICATE":
                             response = handle_request(response, self.file_manager)
                             socket_replication = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                             print("Starting replication manager")
@@ -84,7 +84,6 @@ class FileServer:
                         if "successfully" in response:
                             # print("Will start replication manager")
                             response = unique_id + " REPLICATE " + file_name + " " + file_data
-                            # self.replication_manager.replicate(unique_id, file_name, file_data, operation, socket_replication)
                 self.request_history.append(unique_id)
                 client_socket.sendall(response.encode())
             except Exception as e:
