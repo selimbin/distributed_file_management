@@ -1,7 +1,7 @@
 # server/server.py
 import socket
 import threading
-from server.config import SERVER_HOST, SERVER_PORT
+from config import SERVER_HOST, SERVER_PORT
 from server.file_storage.file_manager import FileManager
 from server.server_operations.server_utilities import handle_request
 
