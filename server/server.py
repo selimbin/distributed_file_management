@@ -311,7 +311,7 @@ class FileServer:
                             self.queue.append(server_queue)
                             # threading.Thread(target=self.client_handler, args=(client, server_queue)).start()
                             self.client_handler(client, server_queue, data)
-                            self.queue.append(server_queue)
+                            # self.queue.append(server_queue)
                             completed = True
                         else:
                             if self.is_leader and len(self.servers) > 1:
