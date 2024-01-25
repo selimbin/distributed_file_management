@@ -8,6 +8,12 @@ class FileManager:
         if not os.path.exists(self.storage_path):
             os.makedirs(self.storage_path)
 
+    def all_files(self):
+        for file_path in os.listdir(self.storage_path):
+            path = os.path.join(self.storage_path, file_path)
+            with open(path, 'rb') as file:
+                yield file_path, str(file.read())
+
     def save_file(self, file_name, data):
         path = os.path.join(self.storage_path, file_name)
         if not os.path.exists(path):

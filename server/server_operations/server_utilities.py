@@ -24,6 +24,9 @@ def handle_request(request, file_manager):
     elif command == "DELETE":
         print(f"In command delete: command:{command} | file_name:{file_name}")
         return file_manager.delete_file(file_name)
+    elif command == "REPLICATE":
+        print(f"In command replicate: command:{command} | file_name:{file_name}")
+        return file_manager.replicate(file_name, content.encode())
     else:
         print(f"In command invalid: command:{command} | file_name:{file_name}")
         return "Invalid command"

@@ -6,22 +6,25 @@ import time
 
 
 class ElectionHandler:
-    def __init__(self, node, all_nodes_info):
+    def __init__(self, node):
         self.node = node
-        self.all_nodes_info = all_nodes_info
+        # self.all_nodes_info = all_nodes_info
 
     def start_election(self):
         print(f"Node {self.node.rank} is starting an election.")
+        self.node.leader = None
+        self.node.is_leader = False
 
-        higher_nodes = [n for n in self.all_nodes_info if n['rank'] > self.node.rank and self.node.is_active]
+        higher_nodes = [n for n in self.node.servers.keys() if n > self.node.rank and self.node.is_active]
         if not higher_nodes:
             self.declare_victory()
             return
-
+        print(f"Higher nodes is: {higher_nodes}")
         for node in higher_nodes:
-            self.node.send_message(node['port'], 'ELECTION')
+            print(f"Sending 'ELECTION' to node {node} at {self.node.servers.get(node)[1]}")
+            self.node.send_message(self.node.servers.get(node)[0], self.node.servers.get(node)[1], "ELECTION")
 
-        time.sleep(15)  # Wait for responses
+        time.sleep(10)  # Wait for responses
         if not self.node.leader:
             self.declare_victory()
 
@@ -36,11 +39,18 @@ class ElectionHandler:
         print(f"Node {self.node.rank} is declaring victory and becoming the leader.")
 
         self.node.is_leader = True
-        self.node.leader = self.node.rank
+        self.node.leader = (self.node.host, self.node.port)
+        self.node.leader_rank = self.node.rank
         # Notify other nodes of victory
-        for node in self.node.all_nodes_info:
-            if node['rank'] != self.node.rank:
-                self.node.send_message(node['port'], f'VICTORY:{self.node.rank}')
+        for node in self.node.servers.keys():
+            if node != self.node.rank:
+                self.node.send_message(self.node.servers.get(node)[0], self.node.servers.get(node)[1], f"VICTORY:{self.node.rank}:{self.node.host}:{self.node.port}")
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            message = f'VICTORY:{self.node.rank}:{self.node.host}:{self.node.port}'.encode()
+            sock.sendto(message, ('<broadcast>', self.node.broadcast_port))
+            print(f"Victor sending broad_cast_message")
+            sock.close()
         self.node.election_event.set()
 
 
@@ -170,6 +180,7 @@ def broadcast_presence(rank, port, broadcast_port):
         message = f'NEW_NODE:{rank}:{port}'.encode()
         sock.sendto(message, ('<broadcast>', broadcast_port))
         print(f"new node sending broad_cast_message")
+        sock.close()
 
 
 if __name__ == "__main__":
