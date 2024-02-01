@@ -14,8 +14,14 @@ class ElectionHandler:
         print(f"Node {self.node.rank} is starting an election.")
         self.node.leader = None
         self.node.is_leader = False
+        # print(f"In start election , keys are: {self.node.servers.keys()}")
+        new_dict = []
+        for elem in self.node.servers.keys():
+            if elem:
+                new_dict.append(elem)
 
-        higher_nodes = [n for n in self.node.servers.keys() if n > self.node.rank and self.node.is_active]
+        # self.node.servers.pop(None)
+        higher_nodes = [n for n in new_dict if n > self.node.rank and self.node.is_active]
         if not higher_nodes:
             self.declare_victory()
             return
@@ -39,6 +45,7 @@ class ElectionHandler:
         print(f"Node {self.node.rank} is declaring victory and becoming the leader.")
 
         self.node.is_leader = True
+        self.node.queue = []
         self.node.leader = (self.node.host, self.node.port)
         self.node.leader_rank = self.node.rank
         # Notify other nodes of victory
@@ -50,7 +57,7 @@ class ElectionHandler:
             message = f'VICTORY:{self.node.rank}:{self.node.host}:{self.node.port}'.encode()
             sock.sendto(message, ('<broadcast>', self.node.broadcast_port))
             print(f"Victor sending broad_cast_message")
-            sock.close()
+            # sock.close()
         self.node.election_event.set()
 
 
@@ -88,6 +95,7 @@ class Node:
             print(f"new node declaring victory")
             # self.election_handler.declare_victory()
             self.is_leader = True
+            self.queue = []
             self.leader = self.rank
             # Notify other nodes of victory
             self.broadcast_handler.send_broadcast_message(f'VICTORY:{self.rank}')

@@ -1,1 +1,6 @@
-# TODO: Configuration settings for the client.
+CLIENT_HOST = '127.0.0.1'
+CLIENT_PORT = 12345
+MAX_RETRIES = 3
+RETRY_DELAY = 2
+HEARTBEAT_TIME = 10
+BROADCAST_PORT = 5005
