@@ -87,7 +87,7 @@ class FileClient:
                 print(f"Client received broadcast message: {message}")
                 self.handle_broadcast_message(message.decode())
             except Exception as e:
-                print(f"Node {self.rank} error receiving broadcast message: {e}")
+                print(f"Client {self.host}:{self.port} error receiving broadcast message: {e}")
 
     # def handle_request(self, message):
     #     sock = self.sock
