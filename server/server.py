@@ -1,5 +1,5 @@
 # server/server.py
-import asyncio
+# import asyncio
 import socket
 import threading
 import time
@@ -201,7 +201,12 @@ class FileServer:
         self.servers.update({self.rank: (self.host, self.port)})
         self.leader = (self.host, self.port)
         # Notify other nodes of victory
-        self.broadcast_handler.send_broadcast_message(f'VICTORY:{self.rank}:{self.host}:{self.port}')
+        count = 0
+        while count <= 3:
+            self.broadcast_handler.send_broadcast_message(f'VICTORY:{self.rank}:{self.host}:{self.port}')
+            count += 1
+            time.sleep(0.1)
+
         # self.election_event.set()
         # b.c he is leader
         # else:

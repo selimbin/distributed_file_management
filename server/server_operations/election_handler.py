@@ -54,8 +54,12 @@ class ElectionHandler:
                 self.node.send_message(self.node.servers.get(node)[0], self.node.servers.get(node)[1], f"VICTORY:{self.node.rank}:{self.node.host}:{self.node.port}")
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-            message = f'VICTORY:{self.node.rank}:{self.node.host}:{self.node.port}'.encode()
-            sock.sendto(message, ('<broadcast>', self.node.broadcast_port))
+            count = 0
+            while count <= 3:
+                message = f'VICTORY:{self.node.rank}:{self.node.host}:{self.node.port}'.encode()
+                sock.sendto(message, ('<broadcast>', self.node.broadcast_port))
+                count += 1
+                time.sleep(0.1)
             print(f"Victor sending broad_cast_message")
             # sock.close()
         self.node.election_event.set()

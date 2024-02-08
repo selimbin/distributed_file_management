@@ -1,6 +1,7 @@
 # import socket
 # from server.server_operations.server_utilities import handle_request
 import socket
+import time
 import uuid
 
 
@@ -57,12 +58,32 @@ class ReplicationManager:
 
     def rollback_child_server(self, child_address, critical, last_operations=10):
         try:
+
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as child_socket:
-                child_socket.connect(child_address)
-                child_socket.sendall("REQUEST_CRITICAL_OPS".encode())
-                child_critical_data = child_socket.recv(1024).decode()
-                print(f"received critical ops: {child_critical_data}")
-                child_critical = self.parse_critical_data(child_critical_data)
+
+
+                retry_count = 0
+                child_critical_data = None
+                while retry_count <= 3 and not child_critical_data:
+                    try:
+                        child_socket.connect(child_address)
+                        child_socket.sendall("REQUEST_CRITICAL_OPS".encode())
+                        child_critical_data = child_socket.recv(1024).decode()
+                        # print(f"received critical ops: {child_critical_data}")
+                        child_critical = self.parse_critical_data(child_critical_data)
+                    except Exception as e:
+                        # print(f"Error in leader sending to child: {e}")
+                        pass
+                    if not child_critical_data:
+                        # print(f"No response in rollback, Retry {retry_count + 1} for server {child_address}")
+                        time.sleep(0.2)
+                        retry_count += 1
+                if not child_critical_data:
+                    # TODO check this later
+                    #  print(f"After {self.max_retries} retries, leader assumes server {child_server} is dead.")
+                    #  self.servers.remove(child_server)
+                    #  print(f"New child servers available are {self.servers} is dead.")
+                    raise Exception(f"{child_address} server is dead")
         except Exception as e:
             print(f"Error while requesting critical operations from child server {child_address}: {e}")
             return False
