@@ -24,6 +24,7 @@ class FileClient:
         # # self.client_socket.connect(('172.20.10.5', 10005))
         self.queue = []
         self.max_retries = 3
+        self.retry_delay = 0.2
 
     def test(self):
         print('test')
@@ -178,8 +179,18 @@ class FileClient:
 
             elif command == 'CREATE':
                 self.broadcast_presence()
-                while self.leader_host is None:
-                    i = 0
+                retry_count = 0
+                while retry_count <= self.max_retries and not self.leader_host:
+                    try:
+                        self.broadcast_presence()
+                    except Exception as e:
+                        pass
+                    if not self.leader_host:
+                        time.sleep(self.retry_delay)
+                        retry_count += 1
+                if not self.leader_host:
+                    print(f"After {self.max_retries} tries, client cannot find leader server.")
+                    return
                 print("waiting for leader")
                 time.sleep(1)
                 filename = input('Enter filename: ')
@@ -200,8 +211,18 @@ class FileClient:
 
             elif command == 'EDIT':
                 self.broadcast_presence()
-                while self.leader_host is None:
-                    i = 0
+                retry_count = 0
+                while retry_count <= self.max_retries and not self.leader_host:
+                    try:
+                        self.broadcast_presence()
+                    except Exception as e:
+                        pass
+                    if not self.leader_host:
+                        time.sleep(self.retry_delay)
+                        retry_count += 1
+                if not self.leader_host:
+                    print(f"After {self.max_retries} tries, client cannot find leader server.")
+                    return
                 filename = input('Enter filename: ')
                 line_number = int(input('Enter line number to edit: '))
                 new_content = input('Enter new content: ')
@@ -211,24 +232,54 @@ class FileClient:
 
             elif command == 'DELETE':
                 self.broadcast_presence()
-                while self.leader_host is None:
-                    i = 0
+                retry_count = 0
+                while retry_count <= self.max_retries and not self.leader_host:
+                    try:
+                        self.broadcast_presence()
+                    except Exception as e:
+                        pass
+                    if not self.leader_host:
+                        time.sleep(self.retry_delay)
+                        retry_count += 1
+                if not self.leader_host:
+                    print(f"After {self.max_retries} tries, client cannot find leader server.")
+                    return
                 filename = input('Enter filename: ')
                 await client.delete(unique_id, filename)
                 self.leader_host = None
                 self.leader_port = None
             elif command == 'READ':
                 self.broadcast_presence()
-                while self.leader_host is None:
-                    i = 0
+                retry_count = 0
+                while retry_count <= self.max_retries and not self.leader_host:
+                    try:
+                        self.broadcast_presence()
+                    except Exception as e:
+                        pass
+                    if not self.leader_host:
+                        time.sleep(self.retry_delay)
+                        retry_count += 1
+                if not self.leader_host:
+                    print(f"After {self.max_retries} tries, client cannot find leader server.")
+                    return
                 filename = input('Enter filename: ')
                 await client.read(unique_id, filename)
                 self.leader_host = None
                 self.leader_port = None
             elif command == 'WRITE':
                 self.broadcast_presence()
-                while self.leader_host is None:
-                    i = 0
+                retry_count = 0
+                while retry_count <= self.max_retries and not self.leader_host:
+                    try:
+                        self.broadcast_presence()
+                    except Exception as e:
+                        pass
+                    if not self.leader_host:
+                        time.sleep(self.retry_delay)
+                        retry_count += 1
+                if not self.leader_host:
+                    print(f"After {self.max_retries} tries, client cannot find leader server.")
+                    return
                 filename = input('Enter filename: ')
                 content = input('Enter content: ')
                 await client.write(unique_id, filename, content)
