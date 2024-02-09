@@ -66,6 +66,8 @@ class FileClient:
                 print(f"No Heartbeat, Retry {retry_count + 1} for leader")
                 time.sleep(2)
                 retry_count += 1
+        if not response:
+            response = "Client couldn't connect to leader, please try again."
         print(response)
         return response
 
@@ -80,11 +82,11 @@ class FileClient:
         while True:
             try:
                 message, _ = broadcast_socket.recvfrom(1024)
-                print(f"Node Client received broadcast message: {message}")
+                # print(f"Node Client received broadcast message: {message}")
                 # print(f"decoding broadcast: {message.decode()}")
                 # data = message.decode().split(':')
                 # print("here:" + data[1])
-                print(f"Client received broadcast message: {message}")
+                # print(f"Client received broadcast message: {message}")
                 self.handle_broadcast_message(message.decode())
             except Exception as e:
                 print(f"Client {self.host}:{self.port} error receiving broadcast message: {e}")
@@ -115,19 +117,19 @@ class FileClient:
         data = message.split(':')
         # print(f"Leader: {self.is_leader}: message is : {data}")
         if data[0] == 'LEADER_AT':
-            print("handling new broadcast message")
+            # print("handling new broadcast message")
             new_node_ip = data[1]
             new_node_port = int(data[2])
             self.leader_host = new_node_ip
             self.leader_port = new_node_port
 
     def broadcast_presence(self):
-        print("broadcasting presence")
+        # print("broadcasting presence")
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
             message = f'CLIENT:{self.host}:{self.port}'.encode()
             sock.sendto(message, ('<broadcast>', self.broadcast_port))
-            print(f"new node sending broad_cast_message")
+            # print(f"new node sending broad_cast_message")
             sock.close()
 
     async def create(self, unique_id, filename):
@@ -190,14 +192,14 @@ class FileClient:
                         retry_count += 1
                 if not self.leader_host:
                     print(f"After {self.max_retries} tries, client cannot find leader server.")
-                    return
-                print("waiting for leader")
-                time.sleep(1)
-                filename = input('Enter filename: ')
-                # content = input('Enter content: ')
-                await client.create(unique_id, filename)
-                self.leader_host = None
-                self.leader_port = None
+                else:
+                    print("waiting for leader")
+                    time.sleep(1)
+                    filename = input('Enter filename: ')
+                    # content = input('Enter content: ')
+                    await client.create(unique_id, filename)
+                    self.leader_host = None
+                    self.leader_port = None
 
             # elif command == 'EDIT':
             #     self.broadcast_presence()
@@ -222,13 +224,13 @@ class FileClient:
                         retry_count += 1
                 if not self.leader_host:
                     print(f"After {self.max_retries} tries, client cannot find leader server.")
-                    return
-                filename = input('Enter filename: ')
-                line_number = int(input('Enter line number to edit: '))
-                new_content = input('Enter new content: ')
-                await client.edit(unique_id, filename, line_number, new_content)
-                self.leader_host = None
-                self.leader_port = None
+                else:
+                    filename = input('Enter filename: ')
+                    line_number = int(input('Enter line number to edit: '))
+                    new_content = input('Enter new content: ')
+                    await client.edit(unique_id, filename, line_number, new_content)
+                    self.leader_host = None
+                    self.leader_port = None
 
             elif command == 'DELETE':
                 self.broadcast_presence()
@@ -243,11 +245,11 @@ class FileClient:
                         retry_count += 1
                 if not self.leader_host:
                     print(f"After {self.max_retries} tries, client cannot find leader server.")
-                    return
-                filename = input('Enter filename: ')
-                await client.delete(unique_id, filename)
-                self.leader_host = None
-                self.leader_port = None
+                else:
+                    filename = input('Enter filename: ')
+                    await client.delete(unique_id, filename)
+                    self.leader_host = None
+                    self.leader_port = None
             elif command == 'READ':
                 self.broadcast_presence()
                 retry_count = 0
@@ -261,11 +263,11 @@ class FileClient:
                         retry_count += 1
                 if not self.leader_host:
                     print(f"After {self.max_retries} tries, client cannot find leader server.")
-                    return
-                filename = input('Enter filename: ')
-                await client.read(unique_id, filename)
-                self.leader_host = None
-                self.leader_port = None
+                else:
+                    filename = input('Enter filename: ')
+                    await client.read(unique_id, filename)
+                    self.leader_host = None
+                    self.leader_port = None
             elif command == 'WRITE':
                 self.broadcast_presence()
                 retry_count = 0
@@ -279,12 +281,12 @@ class FileClient:
                         retry_count += 1
                 if not self.leader_host:
                     print(f"After {self.max_retries} tries, client cannot find leader server.")
-                    return
-                filename = input('Enter filename: ')
-                content = input('Enter content: ')
-                await client.write(unique_id, filename, content)
-                self.leader_host = None
-                self.leader_port = None
+                else:
+                    filename = input('Enter filename: ')
+                    content = input('Enter content: ')
+                    await client.write(unique_id, filename, content)
+                    self.leader_host = None
+                    self.leader_port = None
             else:
                 print('Invalid command')
 

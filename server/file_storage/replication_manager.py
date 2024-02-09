@@ -13,6 +13,11 @@ class ReplicationManager:
 
     def replicate(self, unique_id, file_name, data, operation):
 
+        if operation == "DELETE":
+            self.file_manager.delete_file(file_name)
+        else:
+            self.file_manager.replicate(file_name, data.encode())
+
         for address in self.backup_servers:
             try:
                 socket_init = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

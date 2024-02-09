@@ -37,7 +37,7 @@ class FileServer:
         self.retry_delay = RETRY_DELAY
         self.heartbeat_time = HEARTBEAT_TIME
         self.broadcast_ip = '255.255.224.0'
-        self.port = 10005
+        self.port = 10007
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.file_manager = FileManager(str(self.server_name))
         self.servers = {}
@@ -253,6 +253,10 @@ class FileServer:
                     self.servers = temp_servers.copy()
                     if removed:
                         print(f"New child servers available are {self.servers}.")
+                        all_nodes = [n for n in self.servers.keys()]
+                        for node in all_nodes:
+                            self.send_message(self.servers.get(node)[0], self.servers.get(node)[1], f"UPDATE_SERVER|{self.servers}")
+
                     start_time = time.perf_counter()
             else:
                 if time.perf_counter() - start_time > 10 and self.leader and not self.is_leader:
@@ -359,8 +363,11 @@ class FileServer:
             for node in all_nodes:
                 self.send_message(self.servers.get(node)[0], self.servers.get(node)[1], f"UPDATE_SERVER|{self.servers}")
             print(f"Node {self.rank} acknowledged by Leader Node {self.leader_rank}.")
-        elif data.startwith('UPDATE_SERVER'):
+        elif data.startswith('UPDATE_SERVER'):
+            print(f"Old Servers: {self.servers}")
             self.servers = eval(data.split('|')[1])
+            print(f"New Servers: {self.servers}")
+
         else:
             # print(f"In else with {data}")
             unique_id, _, _, _ = parse_request(data)
@@ -393,27 +400,27 @@ class FileServer:
                     try:
                         client.sendall(self.history.get(unique_id).encode())
                     except Exception as e:
-                        print(f"Error {e} , Issue in sending response to client or server.")
+                        print(f"Error {e} , Issue 1 in sending response to client or server.")
                 else:
                     print(
                         f"Request {unique_id} is still being processed.")  # Should we include this in client implementation?
 
     def client_handler(self, client_socket, child_server, data):
         try:
-            with client_socket:
-                unique_id, operation, file_name, file_data = parse_request(data)
-                print(f"Parse Results: {unique_id}, {operation}, {file_name}, {file_data}")
-                if unique_id in self.history.keys():
-                    response = self.history.get(unique_id)
-                    try:
-                        client_socket.sendall(response.encode())
-                    except Exception as e:
-                        print(f"Error {e} , Issue in sending response to client or server.")
-                    return
-                self.in_process.append(unique_id)
-                if file_name not in self.semaphores.keys():
-                    self.semaphores.update({file_name: True})
-
+            # with client_socket:
+            unique_id, operation, file_name, file_data = parse_request(data)
+            print(f"Parse Results: {unique_id}, {operation}, {file_name}, {file_data}")
+            if unique_id in self.history.keys():
+                response = self.history.get(unique_id)
+                try:
+                    client_socket.sendall(response.encode())
+                except Exception as e:
+                    print(f"Error {e} , Issue 2 in sending response to client or server.")
+                return
+            self.in_process.append(unique_id)
+            if file_name not in self.semaphores.keys():
+                self.semaphores.update({file_name: True})
+            try:
                 if self.is_leader and child_server != 'None':
                     if operation in ["WRITE", "EDIT", "DELETE", "CREATE"]:
                         if self.semaphores.get(file_name):
@@ -441,18 +448,20 @@ class FileServer:
                         #  print(f"After {self.max_retries} retries, leader assumes server {child_server} is dead.")
                         #  self.servers.remove(child_server)
                         #  print(f"New child servers available are {self.servers} is dead.")
+                        # self.servers.popitem()
+
                         raise Exception(f"{child_server} server is dead")
 
                     if operation in ["WRITE", "EDIT", "DELETE", "CREATE"]:
                         _, operation2, file_name, file_data = parse_request(response)
 
                         if operation2 == "REPLICATE":
-                            response = handle_request(response, self.file_manager)
+                            # response = handle_request(response, self.file_manager)
                             print("Starting replication manager")
                             self.replication_manager.replicate(unique_id, file_name, file_data, operation)
                             self.semaphores.update({file_name: True})
-                            if "SUCCESSFUL" in response:
-                                response = f"Operation {operation} successful"
+                            # if "SUCCESSFUL" in response:
+                            response = f"Operation {operation} successful"
                         else:
                             response = operation + " operation failed"
                         self.semaphores.update({file_name: True})
@@ -461,6 +470,7 @@ class FileServer:
                     self.semaphores.update({file_name: True})
                 else:
                     response = handle_request(data, self.file_manager)
+                    print("handle request in else")
                     if not self.is_leader and operation in ["WRITE", "EDIT", "DELETE", "CREATE"]:
                         # socket_replication = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                         if "successfully" in response:
@@ -477,7 +487,10 @@ class FileServer:
                 try:
                     client_socket.sendall(response.encode())
                 except Exception as e:
-                    print(f"Error {e} , Issue in sending response to client or server.")
+                    print(f"Error {e} , Issue 3 in sending response to client or server.")
+            except Exception as e:
+                self.semaphores.update({file_name: True})
+                raise Exception(f"{child_server} server is dead")
 
                 # self.request_history.append(unique_id)
                 # if child_server != 'None':
@@ -489,6 +502,8 @@ class FileServer:
 
 if __name__ == '__main__':
     server = FileServer()
+    port = input('Enter server port: ')
+    server.port = int(port)
     threading.Thread(target=broadcast_presence, args=(server.rank, server.port, server.broadcast_port, server.host),
                      daemon=True).start()
     threading.Thread(target=server.listen_for_broadcasts, daemon=True).start()

@@ -63,6 +63,9 @@ class ElectionHandler:
             print(f"Victor sending broad_cast_message")
             # sock.close()
         self.node.election_event.set()
+        all_nodes = [n for n in self.node.servers.keys()]
+        for node in all_nodes:
+            self.node.send_message(self.node.servers.get(node)[0], self.node.servers.get(node)[1], f"UPDATE_SERVER|{self.node.servers}")
 
 
 class Node:
