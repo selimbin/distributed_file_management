@@ -355,6 +355,12 @@ class FileServer:
                 self.servers.update({rank_loop: (host_loop, port_loop)})
             self.election_event.set()
             print(f"Node {self.rank} acknowledged by Leader Node {self.leader_rank}.")
+            all_nodes = [n for n in self.servers.keys()]
+            for node in all_nodes:
+                self.send_message(self.servers.get(node)[0], self.servers.get(node)[1], f"UPDATE_SERVER|{self.servers}")
+            print(f"Node {self.rank} acknowledged by Leader Node {self.leader_rank}.")
+        elif data.startwith('UPDATE_SERVER'):
+            self.servers = eval(data.split('|')[1])
         else:
             # print(f"In else with {data}")
             unique_id, _, _, _ = parse_request(data)

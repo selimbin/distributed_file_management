@@ -58,9 +58,7 @@ class ReplicationManager:
 
     def rollback_child_server(self, child_address, critical, last_operations=10):
         try:
-
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as child_socket:
-
 
                 retry_count = 0
                 child_critical_data = None
