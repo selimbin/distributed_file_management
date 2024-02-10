@@ -17,7 +17,8 @@ class FileClient:
         self.leader_port = None
         self.broadcast_port = 5005
         # self.broadcast_host = '255.255.224.0'
-        self.host = '172.20.10.13'
+        self.host = socket.gethostbyname(socket.gethostname())
+        # self.host = '172.20.10.13'
         self.port = 12346
 
         # self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

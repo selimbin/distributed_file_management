@@ -6,20 +6,22 @@ import uuid
 
 
 class ReplicationManager:
-    def __init__(self, leader, servers, file_manager):
-        self.leader = leader
-        self.backup_servers = servers
-        self.file_manager = file_manager
+    def __init__(self, node):
+        # self.leader = leader
+        # self.backup_servers = servers
+        # self.file_manager = file_manager
+        self.node = node
 
     def replicate(self, unique_id, file_name, data, operation):
 
         if operation == "DELETE":
-            self.file_manager.delete_file(file_name)
+            self.node.file_manager.delete_file(file_name)
         else:
-            self.file_manager.replicate(file_name, data.encode())
-
-        for address in self.backup_servers:
+            self.node.file_manager.replicate(file_name, data.encode())
+        print(f"starting replicate: {self.node.servers}")
+        for address in self.node.queue:
             try:
+                print(f"In replicate to server: {address}")
                 socket_init = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 # with socket.connect(address) as replication_socket:
                 # print("Address in replication: "+str(address))
@@ -27,7 +29,7 @@ class ReplicationManager:
                 if operation == "DELETE":
                     socket_init.sendall(f"{unique_id} REPLICATE {file_name} {'!del!'}".encode())
                 elif operation == "EDIT":
-                    data2 = self.file_manager.read_file(file_name)
+                    data2 = self.node.file_manager.read_file(file_name)
                     socket_init.sendall(f"{unique_id} REPLICATE {file_name} {data2}".encode())
                 else:
                     socket_init.sendall(f"{unique_id} REPLICATE {file_name} {data}".encode())
@@ -91,51 +93,69 @@ class ReplicationManager:
             print(f"Error while requesting critical operations from child server {child_address}: {e}")
             return False
         # Compare and synchronize
+        updated = []
         for unique_id in list(critical.keys())[-last_operations:]:
-            if unique_id not in child_critical:
+            file_name = critical.get(unique_id)
+            if unique_id not in child_critical and file_name not in updated:
                 # Send the file and operation to the child server to synchronize
                 try:
-                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as child_socket:
-                        child_socket.connect(child_address)
-                        file_name = critical.get(unique_id)
-                        # Assuming file data is retrieved from the file manager or similar
-                        file_data = self.file_manager.read_file(file_name)
-                        if file_data == 'File not found.':
-                            child_socket.sendall(f"{unique_id} REPLICATE {file_name} {'!del!'}".encode())
-                        else:
-                            if file_data == "":
-                                x = "'"
-                                child_socket.sendall(f"{unique_id} REPLICATE {file_name} {x}".encode())
+                    retry_count = 0
+                    response = None
+                    while retry_count <= 3 and not response:
+                        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as child_socket:
+                        # child_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                            child_socket.connect(child_address)
+
+                            # Assuming file data is retrieved from the file manager or similar
+                            file_data = self.node.file_manager.read_file(file_name)
+                            if file_data == 'File not found.':
+                                child_socket.sendall(f"{unique_id} REPLICATE {file_name} {'!del!'}".encode())
                             else:
-                                child_socket.sendall(f"{unique_id} REPLICATE {file_name} {file_data}".encode())
-                        response = child_socket.recv(1024).decode()
-                        print(f'RESPONSE during sync: {response}')
-                        if "SUCCESSFUL" not in response:
-                            raise Exception("Child server failed to acknowledge the sync operation.")
+                                if file_data == "":
+                                    x = "'"
+                                    child_socket.sendall(f"{unique_id} REPLICATE {file_name} {x}".encode())
+                                else:
+                                    child_socket.sendall(f"{unique_id} REPLICATE {file_name} {file_data}".encode())
+                            response = child_socket.recv(1024).decode()
+                            if not response:
+                                time.sleep(0.1)
+                                retry_count += 1
+                                # print(f'RESPONSE during sync: {response}')
+                    if "SUCCESSFUL" not in response:
+                        raise Exception("Child server failed to acknowledge the sync operation.")
+                    updated.append(file_name)
                 except Exception as e:
                     print(f"Error during critical operation sync for child server {child_address}: {e}")
                     return False
 
         for unique_id in child_critical.keys():
-            if unique_id not in critical.keys():
+            file_name = child_critical.get(unique_id)
+            if unique_id not in critical.keys() and file_name not in updated:
                 try:
-                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as child_socket:
-                        child_socket.connect(child_address)
-                        file_name = child_critical.get(unique_id)
-                        # Assuming file data is retrieved from the file manager or similar
-                        file_data = self.file_manager.read_file(file_name)
-                        new_id = uuid.uuid4()
-                        if file_data == 'File not found.':
-                            child_socket.sendall(f"{new_id} REPLICATE {file_name} {'!del!'}".encode())
-                        else:
-                            if file_data == "":
-                                x = "'"
-                                child_socket.sendall(f"{new_id} REPLICATE {file_name} {x}".encode())
+                    retry_count = 0
+                    response = None
+                    while retry_count <= 3 and not response:
+                        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as child_socket:
+                            child_socket.connect(child_address)
+                            file_name = child_critical.get(unique_id)
+                            # Assuming file data is retrieved from the file manager or similar
+                            file_data = self.node.file_manager.read_file(file_name)
+                            new_id = uuid.uuid4()
+                            if file_data == 'File not found.':
+                                child_socket.sendall(f"{new_id} REPLICATE {file_name} {'!del!'}".encode())
                             else:
-                                child_socket.sendall(f"{new_id} REPLICATE {file_name} {file_data}".encode())
-                        response = child_socket.recv(1024).decode()
+                                if file_data == "":
+                                    x = "'"
+                                    child_socket.sendall(f"{new_id} REPLICATE {file_name} {x}".encode())
+                                else:
+                                    child_socket.sendall(f"{new_id} REPLICATE {file_name} {file_data}".encode())
+                            response = child_socket.recv(1024).decode()
+                            if not response:
+                                time.sleep(0.1)
+                                retry_count += 1
                         if "SUCCESSFUL" not in response:
                             raise Exception("Child server failed to acknowledge the sync operation.")
+                        updated.append(file_name)
                 except Exception as e:
                     print(f"Error during critical operation sync for child server {child_address}: {e}")
                     return False
@@ -143,7 +163,7 @@ class ReplicationManager:
 
     def initialize(self, address):
         try:
-            for file_name, file in self.file_manager.all_files():
+            for file_name, file in self.node.file_manager.all_files():
                 unique_id = uuid.uuid4()
                 socket_initialization = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 socket_initialization.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -156,6 +176,11 @@ class ReplicationManager:
                     socket_initialization.sendall(f"{unique_id} REPLICATE {file_name} {file}".encode())
                 # Expecting an acknowledgment from backup
                 response = socket_initialization.recv(1024).decode()
+            socket_initialization = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            socket_initialization.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            socket_initialization.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+            socket_initialization.connect(address)
+            socket_initialization.sendall(f"CRITICAL {self.node.critical}".encode())
             print(f"Initialization of data to {address} successful")
         except Exception as e:
             print(f"Initialization Error to {address}: {e}")

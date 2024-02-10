@@ -4,6 +4,8 @@ import socket
 import threading
 import time
 import uuid
+# import get_port
+# from get_port import find_free_port, get_port
 
 from config import SERVER_HOST, SERVER_PORT, MAX_RETRIES, RETRY_DELAY, HEARTBEAT_TIME, BROADCAST_PORT, BROADCAST_GROUP
 from file_storage.file_manager import FileManager
@@ -31,7 +33,8 @@ class FileServer:
     def __init__(self):
         self.server_name = uuid.uuid4()
         self.rank = int(self.server_name)
-        self.host = '172.20.10.5'
+        self.host = socket.gethostbyname(socket.gethostname())
+        # self.host = '172.20.10.5'
         # self.host = '127.0.0.1'
         self.max_retries = MAX_RETRIES
         self.retry_delay = RETRY_DELAY
@@ -46,7 +49,7 @@ class FileServer:
         self.is_active = True
         self.leader = None
         self.queue = []
-        self.replication_manager = ReplicationManager(self.is_leader, self.queue, self.file_manager)
+        self.replication_manager = ReplicationManager(self)
         # self.request_history = []
 
         self.hold_queue = []
@@ -81,6 +84,10 @@ class FileServer:
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
         sock.bind((self.host, self.port))
+        # self.port = sock.getsockname()[1]
+        # threading.Thread(target=broadcast_presence, args=(self.rank, self.port, self.broadcast_port, self.host),
+        #                  daemon=True).start()
+        threading.Thread(target=self.heartbeat).start()
         sock.listen()
         print(f"Server listening on {self.host}:{self.port}")
         threading.Thread(target=self.heartbeat).start()
@@ -123,25 +130,25 @@ class FileServer:
         while True:
             try:
                 message, _ = broadcast_socket.recvfrom(1024)
-                print(f"Node {self.rank} received broadcast message: {message}")
+                # print(f"Node {self.rank} received broadcast message: {message}")
                 # print(f"decoding broadcast: {message.decode()}")
                 data = message.decode().split(':')
                 # print(f"here in :" + data[0] + " : " + data[1])
                 if "CLIENT" in data[0]:
-                    print(f"Node {self.rank} received broadcast message: {message}")
+                    # print(f"Node {self.rank} received broadcast message: {message}")
                     self.handle_broadcast_message(message.decode())
                 elif "LEADER_AT" not in data[0] and int(data[1]) != self.rank:
-                    print(f"Node {self.rank} received broadcast message: {message}")
+                    # print(f"Node {self.rank} received broadcast message: {message}")
                     self.handle_broadcast_message(message.decode())
             except Exception as e:
                 print(f"Node {self.rank} error receiving broadcast message: {e}")
 
     def handle_broadcast_message(self, message):
-        print(f"data: {message}")
+        # print(f"data: {message}")
         data = message.split(':')
         # print(f"Leader: {self.is_leader}: message is : {data}")
         if data[0] == 'NEW_NODE' and self.is_leader:
-            print("handling new broadcast message")
+            # print("handling new broadcast message")
             new_node_rank = int(data[1])
             new_node_ip = data[2]
             new_node_port = int(data[3])
@@ -151,7 +158,8 @@ class FileServer:
                     print(f'Initializing new server')
                     self.replication_manager.initialize(new_node_info)
                     self.servers.update({new_node_rank: new_node_info})
-                    self.queue.append(new_node_info)
+                    if new_node_info not in self.queue:
+                        self.queue.append(new_node_info)
                 except Exception as e:
                     print(f"Error during initialization of new server: {e}")
                 print(f"Leader Node {self.rank} acknowledging new Node {new_node_rank}.")
@@ -310,7 +318,8 @@ class FileServer:
                     try:
                         print(f"Starting rollback on server {heart_address}")
                         self.replication_manager.rollback_child_server(heart_address, self.critical)
-                        self.queue.append(heart_address)
+                        if heart_address not in self.queue:
+                            self.queue.append(heart_address)
                     except Exception as e:
                         print(f"Error in rollback: {e}")
                 client.sendall("ACKNOWLEDGING HEARTBEAT".encode())
@@ -367,43 +376,45 @@ class FileServer:
             print(f"Old Servers: {self.servers}")
             self.servers = eval(data.split('|')[1])
             print(f"New Servers: {self.servers}")
-
+        elif data.startswith('CRITICAL'):
+            self.critical = eval(data.split('CRITICAL ')[1])
         else:
-            # print(f"In else with {data}")
-            unique_id, _, _, _ = parse_request(data)
-            if unique_id not in self.in_process:
-                completed = False
-                # print("In start")
-                while not completed:
-                    try:
-                        if self.is_leader and len(self.servers) != 1 and len(self.queue) != 0:
-                            server_queue = self.queue.pop(0)
-                            self.queue.append(server_queue)
-                            # threading.Thread(target=self.client_handler, args=(client, server_queue)).start()
-                            # print("Here1")
-                            self.client_handler(client, server_queue, data)
-                            # self.queue.append(server_queue)
-                            completed = True
-                        else:
-                            if self.is_leader and len(self.servers) > 1:
-                                self.hold_queue.append(client)
+            if data:
+                print(f"In else with {data}")
+                unique_id, _, _, _ = parse_request(data)
+                if unique_id not in self.in_process:
+                    completed = False
+                    # print("In start")
+                    while not completed:
+                        try:
+                            if self.is_leader and len(self.servers) != 1 and len(self.queue) != 0:
+                                server_queue = self.queue.pop(0)
+                                self.queue.append(server_queue)
+                                # threading.Thread(target=self.client_handler, args=(client, server_queue)).start()
+                                # print("Here1")
+                                self.client_handler(client, server_queue, data)
+                                # self.queue.append(server_queue)
                                 completed = True
                             else:
-                                # threading.Thread(target=self.client_handler, args=(client, 'None')).start()
-                                self.client_handler(client, 'None', data)
-                                completed = True
-                    except Exception as e:
-                        print(e)
-                        completed = False
-            else:
-                if unique_id in self.history.keys():
-                    try:
-                        client.sendall(self.history.get(unique_id).encode())
-                    except Exception as e:
-                        print(f"Error {e} , Issue 1 in sending response to client or server.")
+                                if self.is_leader and len(self.servers) > 1:
+                                    self.hold_queue.append(client)
+                                    completed = True
+                                else:
+                                    # threading.Thread(target=self.client_handler, args=(client, 'None')).start()
+                                    self.client_handler(client, 'None', data)
+                                    completed = True
+                        except Exception as e:
+                            print(e)
+                            completed = False
                 else:
-                    print(
-                        f"Request {unique_id} is still being processed.")  # Should we include this in client implementation?
+                    if unique_id in self.history.keys():
+                        try:
+                            client.sendall(self.history.get(unique_id).encode())
+                        except Exception as e:
+                            print(f"Error {e} , Issue 1 in sending response to client or server.")
+                    else:
+                        print(
+                            f"Request {unique_id} is still being processed.")  # Should we include this in client implementation?
 
     def client_handler(self, client_socket, child_server, data):
         try:
@@ -490,7 +501,7 @@ class FileServer:
                     print(f"Error {e} , Issue 3 in sending response to client or server.")
             except Exception as e:
                 self.semaphores.update({file_name: True})
-                raise Exception(f"{child_server} server is dead")
+                raise Exception(f"{child_server} server is dead: {e}")
 
                 # self.request_history.append(unique_id)
                 # if child_server != 'None':
