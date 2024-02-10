@@ -33,7 +33,11 @@ class FileServer:
     def __init__(self):
         self.server_name = uuid.uuid4()
         self.rank = int(self.server_name)
-        self.host = socket.gethostbyname(socket.gethostname())
+        # self.host = socket.gethostbyname(socket.gethostname())
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))  # Google's DNS server
+        ip = s.getsockname()[0]
+        self.host = ip
         # self.host = '172.20.10.5'
         # self.host = '127.0.0.1'
         self.max_retries = MAX_RETRIES
@@ -382,6 +386,8 @@ class FileServer:
             if data:
                 print(f"In else with {data}")
                 unique_id, _, _, _ = parse_request(data)
+                if self.is_leader and self.leader in self.queue:
+                    self.queue.remove(self.leader)
                 if unique_id not in self.in_process:
                     completed = False
                     # print("In start")
@@ -464,17 +470,18 @@ class FileServer:
                         raise Exception(f"{child_server} server is dead")
 
                     if operation in ["WRITE", "EDIT", "DELETE", "CREATE"]:
-                        _, operation2, file_name, file_data = parse_request(response)
+                        if "REPLICATE" in response:
+                            _, operation2, file_name, file_data = parse_request(response)
 
-                        if operation2 == "REPLICATE":
-                            # response = handle_request(response, self.file_manager)
-                            print("Starting replication manager")
-                            self.replication_manager.replicate(unique_id, file_name, file_data, operation)
-                            self.semaphores.update({file_name: True})
-                            # if "SUCCESSFUL" in response:
-                            response = f"Operation {operation} successful"
-                        else:
-                            response = operation + " operation failed"
+                            if operation2 == "REPLICATE":
+                                # response = handle_request(response, self.file_manager)
+                                print("Starting replication manager")
+                                self.replication_manager.replicate(unique_id, file_name, file_data, operation)
+                                self.semaphores.update({file_name: True})
+                                # if "SUCCESSFUL" in response:
+                                response = f"Operation {operation} successful"
+                            else:
+                                response = operation + " operation failed"
                         self.semaphores.update({file_name: True})
                         self.critical.update({unique_id: file_name})
                     # if operation in ["WRITE", "EDIT", "DELETE", "CREATE"]:
@@ -485,12 +492,13 @@ class FileServer:
                     if not self.is_leader and operation in ["WRITE", "EDIT", "DELETE", "CREATE"]:
                         # socket_replication = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                         if "successfully" in response:
-                            print("here2")
+                            # print("here2")
                             x = "'"
                             if operation == "CREATE":
                                 response = f"{unique_id} REPLICATE {file_name} {x}"
                             else:
                                 response = f"{unique_id} REPLICATE {file_name} {file_data}"
+
                     if operation in ["WRITE", "EDIT", "DELETE", "CREATE", "REPLICATE"]:
                         self.critical.update({unique_id: file_name})
                     self.semaphores.update({file_name: True})
