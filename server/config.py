@@ -1,1 +1,9 @@
-# TODO: Configuration settings for the server.
+# server/config.py
+
+SERVER_HOST = '127.0.0.1'
+SERVER_PORT = 10005
+MAX_RETRIES = 3
+RETRY_DELAY = 0.3
+HEARTBEAT_TIME = 10
+BROADCAST_PORT = 5005
+BROADCAST_GROUP = '224.0.0.1'
