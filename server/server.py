@@ -87,10 +87,10 @@ class FileServer:
         sock = self.sock
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-        sock.bind((self.host, self.port))
-        # self.port = sock.getsockname()[1]
-        # threading.Thread(target=broadcast_presence, args=(self.rank, self.port, self.broadcast_port, self.host),
-        #                  daemon=True).start()
+        sock.bind((self.host, 0))
+        self.port = sock.getsockname()[1]
+        threading.Thread(target=broadcast_presence, args=(self.rank, self.port, self.broadcast_port, self.host),
+                         daemon=True).start()
         threading.Thread(target=self.heartbeat).start()
         sock.listen()
         print(f"Server listening on {self.host}:{self.port}")
@@ -384,7 +384,7 @@ class FileServer:
             self.critical = eval(data.split('CRITICAL ')[1])
         else:
             if data:
-                print(f"In else with {data}")
+                # print(f"In else with {data}")
                 unique_id, _, _, _ = parse_request(data)
                 if self.is_leader and self.leader in self.queue:
                     self.queue.remove(self.leader)
@@ -521,10 +521,10 @@ class FileServer:
 
 if __name__ == '__main__':
     server = FileServer()
-    port = input('Enter server port: ')
-    server.port = int(port)
-    threading.Thread(target=broadcast_presence, args=(server.rank, server.port, server.broadcast_port, server.host),
-                     daemon=True).start()
+    # port = input('Enter server port: ')
+    # server.port = int(port)
+    # threading.Thread(target=broadcast_presence, args=(server.rank, server.port, server.broadcast_port, server.host),
+    #                  daemon=True).start()
     threading.Thread(target=server.listen_for_broadcasts, daemon=True).start()
     threading.Thread(target=server.wait_for_leader_ack, daemon=True).start()
     # print("here2")
