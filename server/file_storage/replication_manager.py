@@ -19,26 +19,52 @@ class ReplicationManager:
         else:
             self.node.file_manager.replicate(file_name, data.encode())
         print(f"starting replicate: {self.node.servers}")
-        for address in self.node.queue:
-            try:
-                print(f"In replicate to server: {address}")
-                socket_init = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                # with socket.connect(address) as replication_socket:
-                # print("Address in replication: "+str(address))
-                socket_init.connect(address)
-                if operation == "DELETE":
-                    socket_init.sendall(f"{unique_id} REPLICATE {file_name} {'!del!'}".encode())
-                elif operation == "EDIT":
-                    data2 = self.node.file_manager.read_file(file_name)
-                    socket_init.sendall(f"{unique_id} REPLICATE {file_name} {data2}".encode())
-                else:
-                    socket_init.sendall(f"{unique_id} REPLICATE {file_name} {data}".encode())
-                # Expecting an acknowledgment from backup
-                # response = socket_init.recv(1024).decode()
-                # print(f"Replication to {address} successful: {response}")
-                socket_init.close()
-            except Exception as e:
-                print(f"Replication Error to {address}: {e}")
+        try:
+            for address in self.node.queue:
+                try:
+                    retry_count = 0
+                    response = None
+                    while retry_count <= 3 and not response:
+                        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as socket_init:
+                            # child_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                            # socket_init.connect(address)
+                            socket_init.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                            socket_init.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+
+                            # Assuming file data is retrieved from the file manager or similar
+                            print(f"In replicate to server: {address}")
+                            socket_init = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                            # with socket.connect(address) as replication_socket:
+                            # print("Address in replication: "+str(address))
+
+                            socket_init.connect(address)
+                            if operation == "DELETE":
+                                socket_init.sendall(f"{unique_id} REPLICATE {file_name} {'!del!'}".encode())
+                            elif operation == "EDIT":
+                                data2 = self.node.file_manager.read_file(file_name)
+                                socket_init.sendall(f"{unique_id} REPLICATE {file_name} {data2}".encode())
+                            else:
+                                socket_init.sendall(f"{unique_id} REPLICATE {file_name} {data}".encode())
+
+                            response = socket_init.recv(1024).decode()
+                            if not response:
+                                time.sleep(0.1)
+                                retry_count += 1
+
+                    if "successfully" not in response and "REPLICATE" not in response:
+                        print(f'RESPONSE during sync: {response}')
+                        raise Exception("Child server failed to replicate.")
+                    # Expecting an acknowledgment from backup
+                    # response = socket_init.recv(1024).decode()
+                    # print(f"Replication to {address} successful: {response}")
+                    socket_init.close()
+                except Exception as e:
+                    print(f"Replication Error to {address}: {e}")
+        except Exception as e:
+            print(f"Replication Error: {e}")
+        finally:
+            time.sleep(0.2)
+            self.node.semaphores.update({file_name: True})
 
     def parse_critical_data(self, critical_data_str):
         """
@@ -121,7 +147,7 @@ class ReplicationManager:
                                 time.sleep(0.1)
                                 retry_count += 1
                                 # print(f'RESPONSE during sync: {response}')
-                    if "SUCCESSFUL" not in response:
+                    if "successfully" not in response:
                         raise Exception("Child server failed to acknowledge the sync operation.")
                     updated.append(file_name)
                 except Exception as e:
@@ -153,7 +179,7 @@ class ReplicationManager:
                             if not response:
                                 time.sleep(0.1)
                                 retry_count += 1
-                        if "SUCCESSFUL" not in response:
+                        if "successfully" not in response:
                             raise Exception("Child server failed to acknowledge the sync operation.")
                         updated.append(file_name)
                 except Exception as e:
