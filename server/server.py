@@ -467,12 +467,6 @@ class FileServer:
                             time.sleep(self.retry_delay)
                             retry_count += 1
                     if not response:
-                        # TODO check this later
-                        #  print(f"After {self.max_retries} retries, leader assumes server {child_server} is dead.")
-                        #  self.servers.remove(child_server)
-                        #  print(f"New child servers available are {self.servers} is dead.")
-                        # self.servers.popitem()
-
                         raise Exception(f"{child_server} server is dead")
 
                     if operation in ["WRITE", "EDIT", "DELETE", "CREATE"]:
