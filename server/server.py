@@ -1,5 +1,6 @@
 # server/server.py
 # import asyncio
+import random
 import socket
 import threading
 import time
@@ -44,7 +45,7 @@ class FileServer:
         self.retry_delay = RETRY_DELAY
         self.heartbeat_time = HEARTBEAT_TIME
         self.broadcast_ip = '255.255.224.0'
-        self.port = 10007
+        self.port = None
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.file_manager = FileManager(str(self.server_name))
         self.servers = {}
@@ -53,8 +54,9 @@ class FileServer:
         self.is_active = True
         self.leader = None
         self.queue = []
-        self.replication_manager = ReplicationManager(self)
+        # self.replication_manager = ReplicationManager(self)
         # self.request_history = []
+
 
         self.hold_queue = []
         self.history = {}
@@ -160,7 +162,8 @@ class FileServer:
             if new_node_rank not in self.servers.keys():
                 try:
                     print(f'Initializing new server')
-                    self.replication_manager.initialize(new_node_info)
+                    replication_manager = ReplicationManager(self)
+                    replication_manager.initialize(new_node_info)
                     self.servers.update({new_node_rank: new_node_info})
                     if new_node_info not in self.queue:
                         self.queue.append(new_node_info)
@@ -321,7 +324,8 @@ class FileServer:
                 if heart_address not in self.queue:
                     try:
                         print(f"Starting rollback on server {heart_address}")
-                        self.replication_manager.rollback_child_server(heart_address, self.critical)
+                        replication_manager = ReplicationManager(self)
+                        replication_manager.rollback_child_server(heart_address, self.critical)
                         if heart_address not in self.queue:
                             self.queue.append(heart_address)
                     except Exception as e:
@@ -440,6 +444,8 @@ class FileServer:
             try:
                 if self.is_leader and child_server != 'None':
                     if operation in ["WRITE", "EDIT", "DELETE", "CREATE"]:
+                        r1 = random.randint(0, 15)
+                        time.sleep(r1*0.0001)
                         if self.semaphores.get(file_name):
                             self.semaphores.update({file_name: False})
                         else:
@@ -476,16 +482,20 @@ class FileServer:
                             if operation2 == "REPLICATE":
                                 # response = handle_request(response, self.file_manager)
                                 print("Starting replication manager")
-                                self.replication_manager.replicate(unique_id, file_name, file_data, operation)
-                                self.semaphores.update({file_name: True})
+                                replication_manager = ReplicationManager(self)
+                                replication_manager.replicate(unique_id, file_name, file_data, operation)
+                                # threading.Thread(target=self.replication_manager.replicate, args=(unique_id, file_name, file_data, operation), daemon=True).start()
+                                # self.semaphores.update({file_name: True})
                                 # if "SUCCESSFUL" in response:
-                                response = f"Operation {operation} successful"
+                                response = f"Operation {operation} executed successfully"
                             else:
                                 response = operation + " operation failed"
-                        self.semaphores.update({file_name: True})
+                        # else:
+                        #     self.semaphores.update({file_name: True})
+                        # self.semaphores.update({file_name: True})
                         self.critical.update({unique_id: file_name})
                     # if operation in ["WRITE", "EDIT", "DELETE", "CREATE"]:
-                    self.semaphores.update({file_name: True})
+                    # self.semaphores.update({file_name: True})
                 else:
                     response = handle_request(data, self.file_manager)
                     print("handle request in else")
@@ -501,14 +511,14 @@ class FileServer:
 
                     if operation in ["WRITE", "EDIT", "DELETE", "CREATE", "REPLICATE"]:
                         self.critical.update({unique_id: file_name})
-                    self.semaphores.update({file_name: True})
+                    # self.semaphores.update({file_name: True})
                 self.history.update({unique_id: response})
                 try:
                     client_socket.sendall(response.encode())
                 except Exception as e:
                     print(f"Error {e} , Issue 3 in sending response to client or server.")
             except Exception as e:
-                self.semaphores.update({file_name: True})
+                # self.semaphores.update({file_name: True})
                 raise Exception(f"{child_server} server is dead: {e}")
 
                 # self.request_history.append(unique_id)

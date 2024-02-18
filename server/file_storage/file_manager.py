@@ -90,6 +90,6 @@ class FileManager:
         else:
             with open(path, 'w') as file:
                 file.write(data)
-        return "REPLICATION SUCCESSFUL"
+        return "REPLICATION successfully"
 
     # Add more file management methods as needed

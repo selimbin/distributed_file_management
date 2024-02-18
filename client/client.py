@@ -17,9 +17,16 @@ class FileClient:
         self.leader_port = None
         self.broadcast_port = 5005
         # self.broadcast_host = '255.255.224.0'
-        self.host = socket.gethostbyname(socket.gethostname())
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))  # Google's DNS server
+        ip = s.getsockname()[0]
+        self.host = ip
         # self.host = '172.20.10.13'
-        self.port = 12346
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.bind((self.host, 0))
+        self.port = sock.getsockname()[1]
+        print(f"Client listening on {self.host}:{self.port}")
+        # self.port = 12346
 
         # self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         # # self.client_socket.connect(('172.20.10.5', 10005))
